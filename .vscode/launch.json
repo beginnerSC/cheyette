@@ -5,7 +5,7 @@
             "name": "C++ Launch (Windows)",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/Debug/_ppc_exe.exe",
+            "program": "${workspaceFolder}/build/Debug/_cheyette_exe.exe",
             // "externalConsole": true,
             "logging": {
               "moduleLoad": false,

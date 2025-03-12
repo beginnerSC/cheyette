@@ -1,3 +1,5 @@
 {
-    "cmake.sourceDirectory": "D:/pyscripts/ppc/ppc/src/_ppc"
+    "cmake.sourceDirectory": "D:/pyscripts/cheyette/cheyette/src/_cheyette", 
+    "cmake.configureOnOpen": true,
+    // "cmake.ctestPath": ""
 }

@@ -3,7 +3,7 @@
 #include "example2.hpp"
 
 PYBIND11_MODULE(_ppc, m) {
-    m.doc() = "This is _ppc's docstring.";
+    m.doc() = "This is _cheyette's docstring.";
     m.def("add", &add, "Add up two numbers.");
     m.def("sub", &sub, "Find difference of two numbers.");
 }

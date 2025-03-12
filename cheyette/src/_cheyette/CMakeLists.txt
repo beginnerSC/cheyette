@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.11)
 
-project(_ppc VERSION "0.1")
+project(_cheyette VERSION "0.1")
 
 # Define CMAKE_INSTALL_xxx: LIBDIR, INCLUDEDIR
 include(GNUInstallDirs)
@@ -14,23 +14,23 @@ include(FetchContent)
 # )
 # FetchContent_MakeAvailable(pybind11)
 
-set(pybind11_DIR "D:/Users/zhang/AppData/Local/pypoetry/Cache/virtualenvs/ppc-HPb1V-Xd-py3.12/Lib/site-packages/pybind11/share/cmake/pybind11")
+set(pybind11_DIR "D:/Users/zhang/AppData/Local/pypoetry/Cache/virtualenvs/cheyette-5_iMRCa0-py3.12/Lib/site-packages/pybind11/share/cmake/pybind11")
 find_package(pybind11 REQUIRED)
 
-include_directories("D:/Users/zhang/AppData/Local/pypoetry/Cache/virtualenvs/ppc-HPb1V-Xd-py3.12/Lib/site-packages/pybind11/include")
+include_directories("D:/Users/zhang/AppData/Local/pypoetry/Cache/virtualenvs/cheyette-5_iMRCa0-py3.12/Lib/site-packages/pybind11/include")
 include_directories("D:/python3.12.4/include")   # to see Python.py
 
 link_directories("D:/python3.12.4/libs")   # for linker to see python312.lib
 
-add_executable(_ppc_exe   # build executable to debug; one must define a main function as the entry point
-  _ppc_pybind.cpp 
+add_executable(_cheyette_exe   # build executable to debug; one must define a main function as the entry point
+  _cheyette_pybind.cpp 
   example1.cpp
   example2.cpp
 )
 
-set(python_module_name _ppc)
+set(python_module_name _cheyette)
 pybind11_add_module(${python_module_name} MODULE
-  _ppc_pybind.cpp 
+  _cheyette_pybind.cpp 
   example1.cpp
   example2.cpp
 )

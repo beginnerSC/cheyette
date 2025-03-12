@@ -1,1 +1,0 @@
-from ._ppc import add, sub

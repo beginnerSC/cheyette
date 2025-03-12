@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ppc"
+name = "cheyette"
 version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
@@ -7,13 +7,13 @@ readme = "README.md"
 
 include = [
     # Source files for C extensions must be included in the source distribution.
-    { path = "ppc/src/_ppc/*.*", format = "sdist" },
+    { path = "cheyette/src/_cheyette/*.*", format = "sdist" },
     # C extensions must be included in the wheel distribution.
-    { path = "ppc/*.pyd", format = "wheel" },
-    { path = "ppc/*.so", format = "wheel" },
+    { path = "cheyette/*.pyd", format = "wheel" },
+    { path = "cheyette/*.so", format = "wheel" },
 ]
 exclude = [
-    "ppc/src/_ppc/*.cpp",
+    "cheyette/src/_cheyette/*.cpp",
 ]
 
 [tool.poetry.build]
