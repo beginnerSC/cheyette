@@ -11,7 +11,7 @@
               "moduleLoad": false,
               "trace": true
             },
-            // "preLaunchTask": "CMake: build", 
+            "preLaunchTask": "CMake: build", 
             "cwd": "${workspaceFolder}",
             // "symbolSearchPath": "C:\\Symbols;C:\\SymbolDir2",
             // "visualizerFile": "${workspaceFolder}/my.natvis",
