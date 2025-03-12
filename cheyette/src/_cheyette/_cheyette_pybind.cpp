@@ -22,9 +22,10 @@ int main()
     std::vector<double> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; 
     PiecewiseFunction f1(times, zeros), f2(times, zeros), g1(times, zeros), g2(times, zeros), zeroFunction(times, zeros); 
 
-    PiecewiseFunction temp1 = f1 * f2;
-    PiecewiseFunction temp2 = g1 * g2;
-    PiecewiseFunction h = temp1 + temp2;
+    PiecewiseFunction h = f1*f2 + g1*g2;
+    // std::cout << "(f1*f2)(3.5) = " << (f1*f2)(3.5) << std::endl;
+    // std::cout << "(f1*f2 + g1*g2)(3.5) = " << (f1*f2 + g1*g2)(3.5) << std::endl;
+    std::cout << "h(3.5) = " << h(3.5) << std::endl;
 
     PiecewiseFunction q(times, zeros);
     q = f1*f2 + g1*g2;

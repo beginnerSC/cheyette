@@ -9,9 +9,13 @@ class Subfunction {
 public:
     Subfunction(std::function<double(double)> func) : m_func(func) {}
     Subfunction(const Subfunction& other) : m_func(other.m_func) {}
-    Subfunction(const Subfunction&& other) : m_func(std::move(other.m_func)) {}
+    Subfunction(const Subfunction&& other) : m_func(std::move(other.m_func)) {
+        std::cout << "in Subfunction move constructor (const version)" << std::endl;
+    }
     // Subfunction(Subfunction& other) : m_func(other.m_func) {}
-    // Subfunction(Subfunction&& other) : m_func(std::move(other.m_func)) {}
+    Subfunction(Subfunction&& other) : m_func(std::move(other.m_func)) {
+        std::cout << "in Subfunction move constructor (non const version)" << std::endl;
+    }
 
     double operator()(double t) const {
         return m_func(t);
@@ -37,18 +41,12 @@ public:
         }
         return *this;
     }
-    Subfunction& operator=(const Subfunction&& other) noexcept {
+    Subfunction& operator=(Subfunction&& other) noexcept {
         if (this != &other) {
             m_func = std::move(other.m_func);
         }
         return *this;
     }
-    // Subfunction& operator=(Subfunction&& other) noexcept {
-    //     if (this != &other) {
-    //         m_func = std::move(other.m_func);
-    //     }
-    //     return *this;
-    // }
     friend Subfunction operator*(double scalar, const Subfunction& func) {
         return Subfunction([=](double t) { return scalar * func.m_func(t); });
     }
@@ -79,14 +77,6 @@ public:
         : m_times(std::move(other.m_times)), m_functions(std::move(other.m_functions)) {
             std::cout << "in move constructor (const version)" << std::endl;
         }
-    // PiecewiseFunction(PiecewiseFunction& other) 
-    //     : m_times(other.m_times), m_functions(other.m_functions) {
-    //         std::cout << "in copy constructor (non const version/) " << std::endl;
-    //     }
-    // PiecewiseFunction(PiecewiseFunction&& other) 
-    //     : m_times(std::move(other.m_times)), m_functions(std::move(other.m_functions)) {
-    //         std::cout << "in move constructor (non const version)" << std::endl;
-    //     }
 
     // convient constructor for piecewise constant function or integral of a piecewise constant function
     PiecewiseFunction(const std::vector<double>& times, const std::vector<double>& constants, bool integrate = false) {
@@ -116,7 +106,7 @@ public:
         } else {
             // Initialize the piecewise constant functions
             for (const auto& constant : constants) {
-                m_functions.emplace_back([constant](double) { return constant; });
+                m_functions.emplace_back(Subfunction(std::function<double(double)>([constant](double) { return constant; })));
             }
         }
     }
@@ -135,7 +125,7 @@ public:
         for (size_t i = 0; i < m_functions.size(); ++i) {
             new_functions.push_back(m_functions[i] + other.m_functions[i]);
         }
-        return PiecewiseFunction(m_times, new_functions);
+        return std::move(PiecewiseFunction(m_times, new_functions));
     }
 
     PiecewiseFunction& operator+=(const PiecewiseFunction& other) {
@@ -186,7 +176,7 @@ public:
         return *this;
     }
 
-    PiecewiseFunction& operator=(const PiecewiseFunction&& other) {
+    PiecewiseFunction& operator=(PiecewiseFunction&& other) {
         std::cout << "in move assignment (const version)" << std::endl;
         if (this != &other) {
             m_times = std::move(other.m_times);
@@ -194,15 +184,6 @@ public:
         }
         return *this;
     }
-
-    // PiecewiseFunction& operator=(PiecewiseFunction&& other) {
-    //     std::cout << "in move assignment (non const version)" << std::endl;
-    //     if (this != &other) {
-    //         m_times = std::move(other.m_times);
-    //         m_functions = std::move(other.m_functions);
-    //     }
-    //     return *this;
-    // }
 
     friend PiecewiseFunction operator*(double scalar, const PiecewiseFunction& pf) {
         std::vector<Subfunction> new_functions;
@@ -250,12 +231,6 @@ public:
     MatrixPiecewiseFunction(const MatrixPiecewiseFunction&& other) 
         : m_matrix(std::move(other.m_matrix)), m_pf(std::move(other.m_pf)) {} 
 
-    // MatrixPiecewiseFunction(MatrixPiecewiseFunction& other) 
-    //     : m_matrix(other.m_matrix), m_pf(other.m_pf) {} 
-
-    // MatrixPiecewiseFunction(MatrixPiecewiseFunction&& other) 
-    //     : m_matrix(std::move(other.m_matrix)), m_pf(std::move(other.m_pf)) {} 
-    
     // ctor to fill the matrix with the same piecewise function
     MatrixPiecewiseFunction(const PiecewiseFunction& pf) : m_pf(pf) {
         m_matrix.resize(3, std::vector<PiecewiseFunction>(3, m_pf));
@@ -375,14 +350,6 @@ public:
         }
         return *this;
     }
-
-    // MatrixPiecewiseFunction& operator=(MatrixPiecewiseFunction&& other) {
-    //     if (this != &other) {
-    //         m_matrix = std::move(other.m_matrix);
-    //         m_pf = std::move(other.m_pf);
-    //     }
-    //     return *this;
-    // }
 
     friend MatrixPiecewiseFunction operator*(const std::vector<std::vector<double>>& c, const MatrixPiecewiseFunction& mpf) {
         MatrixPiecewiseFunction result(mpf.m_pf);
