@@ -5,21 +5,6 @@
 #include <algorithm>
 #include <utility>
 
-class Function {
-public:
-    Function(std::function<double(double)> func) : m_func(func) {}
-    Function(const Function& other) : m_func(other.m_func) {}
-    double operator()(double t) const {
-        return m_func(t);
-    }
-    Function operator+(const Function& other) const {
-        auto shared_this = std::make_shared<Function>(*this);
-        auto shared_other = std::make_shared<Function>(other);
-        return Function([=](double t) { return (shared_this->m_func)(t) + (shared_other->m_func)(t); });
-    }
-private:
-    std::function<double(double)> m_func;
-};
 
 class Subfunction {
 public:

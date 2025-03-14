@@ -16,20 +16,6 @@ void foo(){
     d = sub(1, 2);
 }
 
-int working()
-{
-    Function f1([](double t) { return 1.; }), 
-             f2([](double t) { return 10.; }), 
-             f3([](double t) { return 100.; }); 
-
-    Function h = f1 + f2 + f3;
-
-    std::cout << "(f1 + f2)(3.5) = " << (f1 + f2)(3.5) << std::endl;
-    std::cout << "h(3.5) = " << h(3.5) << std::endl;
-
-    return 0;
-}
-
 int main()
 {
     std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30}; 
