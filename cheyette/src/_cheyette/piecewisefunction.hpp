@@ -5,35 +5,52 @@
 #include <algorithm>
 #include <utility>
 
+class Function {
+public:
+    Function(std::function<double(double)> func) : m_func(func) {}
+    Function(const Function& other) : m_func(other.m_func) {}
+    double operator()(double t) const {
+        return m_func(t);
+    }
+    Function operator+(const Function& other) const {
+        auto shared_this = std::make_shared<Function>(*this);
+        auto shared_other = std::make_shared<Function>(other);
+        return Function([=](double t) { return (shared_this->m_func)(t) + (shared_other->m_func)(t); });
+    }
+private:
+    std::function<double(double)> m_func;
+};
+
 class Subfunction {
 public:
     Subfunction(std::function<double(double)> func) : m_func(func) {}
     Subfunction(const Subfunction& other) : m_func(other.m_func) {}
-    Subfunction(const Subfunction&& other) : m_func(std::move(other.m_func)) {
-        std::cout << "in Subfunction move constructor (const version)" << std::endl;
-    }
-    // Subfunction(Subfunction& other) : m_func(other.m_func) {}
-    Subfunction(Subfunction&& other) : m_func(std::move(other.m_func)) {
-        std::cout << "in Subfunction move constructor (non const version)" << std::endl;
-    }
-
     double operator()(double t) const {
         return m_func(t);
     }
     Subfunction operator+(const Subfunction& other) const {
-        return Subfunction([=](double t) { return m_func(t) + other.m_func(t); });
+        auto shared_this = std::make_shared<Subfunction>(*this);
+        auto shared_other = std::make_shared<Subfunction>(other);
+        return Subfunction([=](double t) { return (shared_this->m_func)(t) + (shared_other->m_func)(t); });
     }
     Subfunction operator-(const Subfunction& other) const {
-        return Subfunction([=](double t) { return m_func(t) - other.m_func(t); });
+        auto shared_this = std::make_shared<Subfunction>(*this);
+        auto shared_other = std::make_shared<Subfunction>(other);
+        return Subfunction([=](double t) { return (shared_this->m_func)(t) - (shared_other->m_func)(t); });
     }
     Subfunction operator*(const Subfunction& other) const {
-        return Subfunction([=](double t) { return m_func(t) * other.m_func(t); });
+        auto shared_this = std::make_shared<Subfunction>(*this);
+        auto shared_other = std::make_shared<Subfunction>(other);
+        return Subfunction([=](double t) { return (shared_this->m_func)(t) * (shared_other->m_func)(t); });
     }
     Subfunction operator/(const Subfunction& other) const {
-        return Subfunction([=](double t) { return m_func(t) / other.m_func(t); });
+        auto shared_this = std::make_shared<Subfunction>(*this);
+        auto shared_other = std::make_shared<Subfunction>(other);
+        return Subfunction([=](double t) { return (shared_this->m_func)(t) / (shared_other->m_func)(t); });
     }
     Subfunction operator-() const {
-        return Subfunction([=](double t) { return -m_func(t); });
+        auto shared_this = std::make_shared<Subfunction>(*this);
+        return Subfunction([=](double t) { return -(shared_this->m_func)(t); });
     }
     Subfunction& operator=(const Subfunction& other) {
         if (this != &other) {
@@ -48,9 +65,11 @@ public:
         return *this;
     }
     friend Subfunction operator*(double scalar, const Subfunction& func) {
-        return Subfunction([=](double t) { return scalar * func.m_func(t); });
+        auto shared_func = std::make_shared<Subfunction>(func);
+        return Subfunction([=](double t) { return scalar * (shared_func->m_func)(t); });
     }
     friend Subfunction operator*(const Subfunction& func, double scalar) {
+        auto shared_func = std::make_shared<Subfunction>(func);
         return Subfunction([=](double t) { return func.m_func(t) * scalar; });
     }
 private:
@@ -61,22 +80,15 @@ private:
 class PiecewiseFunction {
 public:
     PiecewiseFunction() {
-        std::cout << "in default constructor (empty version)" << std::endl;
         m_times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
         m_functions.resize(m_times.size(), Subfunction([](double) { return 0.0; }));
     }
     PiecewiseFunction(const std::vector<double>& times, const std::vector<Subfunction>& functions)
-        : m_times(times), m_functions(functions) {
-            std::cout << "in default constructor" << std::endl;
-        }
+        : m_times(times), m_functions(functions) {}
     PiecewiseFunction(const PiecewiseFunction& other) 
-        : m_times(other.m_times), m_functions(other.m_functions) {
-            std::cout << "in copy constructor (const version)" << std::endl;
-        }
-    PiecewiseFunction(const PiecewiseFunction&& other) 
-        : m_times(std::move(other.m_times)), m_functions(std::move(other.m_functions)) {
-            std::cout << "in move constructor (const version)" << std::endl;
-        }
+        : m_times(other.m_times), m_functions(other.m_functions) {}
+    PiecewiseFunction(PiecewiseFunction&& other) 
+        : m_times(std::move(other.m_times)), m_functions(std::move(other.m_functions)) {}
 
     // convient constructor for piecewise constant function or integral of a piecewise constant function
     PiecewiseFunction(const std::vector<double>& times, const std::vector<double>& constants, bool integrate = false) {
@@ -168,7 +180,6 @@ public:
     }
 
     PiecewiseFunction& operator=(const PiecewiseFunction& other) {
-        std::cout << "in assignment" << std::endl;
         if (this != &other) {
             m_times = other.m_times;
             m_functions = other.m_functions;
@@ -177,7 +188,6 @@ public:
     }
 
     PiecewiseFunction& operator=(PiecewiseFunction&& other) {
-        std::cout << "in move assignment (const version)" << std::endl;
         if (this != &other) {
             m_times = std::move(other.m_times);
             m_functions = std::move(other.m_functions);
@@ -209,10 +219,12 @@ private:
 };
 
 Subfunction exp(const Subfunction& f) {
+    auto shared_f = std::make_shared<Subfunction>(f);
     return Subfunction([=](double t) {
-        return std::exp(f(t));
+        return std::exp((*shared_f)(t));
     });
 }
+
 
 PiecewiseFunction exp(const PiecewiseFunction& pf) {
     std::vector<Subfunction> new_functions;
@@ -228,7 +240,7 @@ public:
     MatrixPiecewiseFunction(const MatrixPiecewiseFunction& other) 
         : m_matrix(other.m_matrix), m_pf(other.m_pf) {} 
 
-    MatrixPiecewiseFunction(const MatrixPiecewiseFunction&& other) 
+    MatrixPiecewiseFunction(MatrixPiecewiseFunction&& other) 
         : m_matrix(std::move(other.m_matrix)), m_pf(std::move(other.m_pf)) {} 
 
     // ctor to fill the matrix with the same piecewise function
