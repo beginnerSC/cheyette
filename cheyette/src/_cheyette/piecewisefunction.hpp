@@ -57,6 +57,39 @@ public:
         auto shared_func = std::make_shared<Subfunction>(func);
         return Subfunction([=](double t) { return func.m_func(t) * scalar; });
     }
+    // Integral function using 10-point Gaussian quadrature
+    Subfunction integral(double a) const {
+        return Subfunction([=](double t) {
+            // 10-point Gaussian quadrature weights and abscissae
+            static const double weights[10] = {
+                0.29552422471475287, 0.29552422471475287,
+                0.26926671930999635, 0.26926671930999635,
+                0.21908636251598204, 0.21908636251598204,
+                0.14945134915058059, 0.14945134915058059,
+                0.06667134430868814, 0.06667134430868814
+            };
+            static const double abscissae[10] = {
+                -0.14887433898163122, 0.14887433898163122,
+                -0.4333953941292472, 0.4333953941292472,
+                -0.6794095682990244, 0.6794095682990244,
+                -0.8650633666889845, 0.8650633666889845,
+                -0.9739065285171717, 0.9739065285171717
+            };
+
+            double integral_value = 0.0;
+            double midpoint = 0.5 * (a + t);
+            double half_length = 0.5 * (t - a);
+
+            for (int i = 0; i < 10; ++i) {
+                double x = midpoint + half_length * abscissae[i];
+                integral_value += weights[i] * m_func(x);
+            }
+
+            integral_value *= half_length;
+            return integral_value;
+        });
+    }
+
 private:
     std::function<double(double)> m_func;
 };
@@ -198,6 +231,23 @@ public:
 
     friend PiecewiseFunction exp(const PiecewiseFunction& pf);
 
+    PiecewiseFunction integral() const {
+    std::vector<Subfunction> integral_functions;
+    double previous_time = 0.0;
+    double accumulated_integral = 0.0;
+
+    for (size_t i = 0; i < m_functions.size(); ++i) {
+        Subfunction integral_func = m_functions[i].integral(previous_time);
+        integral_functions.push_back(Subfunction([=](double t) {
+            return accumulated_integral + integral_func(t);
+        }));
+        accumulated_integral += integral_func(m_times[i]);
+        previous_time = m_times[i];
+    }
+
+    return PiecewiseFunction(m_times, integral_functions);
+}
+
 private:
     std::vector<double> m_times;
     std::vector<Subfunction> m_functions;
@@ -298,6 +348,16 @@ public:
             }
         }
         return transposed;
+    }
+
+    MatrixPiecewiseFunction integral() const {
+        MatrixPiecewiseFunction result(m_pf);
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                result.m_matrix[i][j] = m_matrix[i][j].integral();
+            }
+        }
+        return result;
     }
 
     MatrixPiecewiseFunction operator+(const MatrixPiecewiseFunction& other) const {
