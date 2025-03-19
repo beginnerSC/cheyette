@@ -4,6 +4,7 @@
 #include <cmath>
 #include <algorithm>
 #include <utility>
+#include <limits>
 
 
 class Subfunction {
@@ -55,7 +56,11 @@ public:
     }
     friend Subfunction operator*(const Subfunction& func, double scalar) {
         auto shared_func = std::make_shared<Subfunction>(func);
-        return Subfunction([=](double t) { return func.m_func(t) * scalar; });
+        return Subfunction([=](double t) { return (shared_func->m_func)(t) * scalar; });
+    }
+    Subfunction shift(double shift) const {   // f.shift(shift) returns the shifted function f(x + shift)
+        auto shared_func = std::make_shared<Subfunction>(*this);
+        return Subfunction([=](double t) { return (shared_func->m_func)(t + shift); });
     }
     // Integral function using 10-point Gaussian quadrature
     Subfunction integral(double a) const {
@@ -97,35 +102,43 @@ private:
 
 class PiecewiseFunction {
 public:
-    PiecewiseFunction() {
-        m_times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
+    PiecewiseFunction() {  // zero function by default
+        m_times = {200};
         m_functions.resize(m_times.size(), Subfunction([](double) { return 0.0; }));
     }
     PiecewiseFunction(const std::vector<double>& times, const std::vector<Subfunction>& functions)
-        : m_times(times), m_functions(functions) {}
+        : m_times(times), m_functions(functions) {
+            m_times.back() = 200;  // ensure the last time is 200y
+        }
     PiecewiseFunction(const PiecewiseFunction& other) 
-        : m_times(other.m_times), m_functions(other.m_functions) {}
+        : m_times(other.m_times), m_functions(other.m_functions) {
+            m_times.back() = 200;  // ensure the last time is 200y
+        }
     PiecewiseFunction(PiecewiseFunction&& other) 
-        : m_times(std::move(other.m_times)), m_functions(std::move(other.m_functions)) {}
+        : m_times(std::move(other.m_times)), m_functions(std::move(other.m_functions)) {
+            m_times.back() = 200;  // ensure the last time is 200y
+        }
 
     // convient constructor for piecewise constant function or integral of a piecewise constant function
     PiecewiseFunction(const std::vector<double>& times, const std::vector<double>& constants, bool integrate = false) {
         m_times = times;
+        m_times.back() = 200;
+
         if (integrate) {
             // Compute the integral of the piecewise constant function
             std::vector<Subfunction> integral_functions;
 
-            for (size_t i = 0; i < times.size(); ++i) {
+            for (size_t i = 0; i < m_times.size(); ++i) {
                 Subfunction integral_func([=](double t) {
-                    size_t q_t = std::upper_bound(times.begin(), times.end(), t) - times.begin() + 1;
+                    size_t q_t = std::upper_bound(m_times.begin(), m_times.end(), t) - m_times.begin() + 1;
                     double integral_value = 0.0;
 
                     // Add the sum of the intervals [T_j, T_{j+1}] for j from 0 to q(t)-1
                     for (size_t j = 0; j < q_t ; ++j) {
-                        integral_value += constants[j] * (times[j] - (j==0 ? 0 : times[j-1]));
+                        integral_value += constants[j] * (m_times[j] - (j==0 ? 0 : m_times[j-1]));
                     }
                     // Add the remaining term -g_{q(t)-1} * (T_{q(t)} - t)
-                    integral_value -= constants[q_t - 1] * (times[q_t - 1] - t);
+                    integral_value -= constants[q_t - 1] * (m_times[q_t - 1] - t);
                     
                     return integral_value;
                 });
@@ -151,42 +164,190 @@ public:
     }
 
     PiecewiseFunction operator+(const PiecewiseFunction& other) const {
-        std::vector<Subfunction> new_functions;
-        for (size_t i = 0; i < m_functions.size(); ++i) {
-            new_functions.push_back(m_functions[i] + other.m_functions[i]);
+        std::vector<double> new_times = {};
+        std::vector<Subfunction> new_functions = {};
+        
+        int i=0, j=0;
+
+        while (i<m_times.size() && j<other.m_times.size())
+        {
+            if (m_times[i] < other.m_times[j]) {
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] + other.m_functions[j]);
+                i++;
+            } else if (m_times[i] > other.m_times[j]) {
+                new_times.push_back(other.m_times[j]);
+                new_functions.push_back(m_functions[i] + other.m_functions[j]);
+                j++;
+            } else {    // this and other have the same time, only push back the time once
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] + other.m_functions[j]);
+                i++;
+                j++;
+            }
         }
-        return std::move(PiecewiseFunction(m_times, new_functions));
+        if (i==m_times.size()){
+            for (size_t k=j ; k<other.m_times.size() ; ++k){
+                new_times.push_back(other.m_times[k]);
+                new_functions.push_back(m_functions[i-1] + other.m_functions[k]);
+            }
+        } else if (j==other.m_times.size()){
+            for (size_t k=i ; k<m_times.size() ; ++k){
+                new_times.push_back(m_times[k]);
+                new_functions.push_back(m_functions[k] + other.m_functions[j-1]);
+            }
+        }
+        return PiecewiseFunction(new_times, new_functions);
     }
 
     PiecewiseFunction& operator+=(const PiecewiseFunction& other) {
-        for (size_t i = 0; i < m_functions.size(); ++i) {
-            m_functions[i] = m_functions[i] + other.m_functions[i];
+        std::vector<double> new_times = {};
+        std::vector<Subfunction> new_functions = {};
+        
+        int i=0, j=0;
+
+        while (i<m_times.size() && j<other.m_times.size())
+        {
+            if (m_times[i] < other.m_times[j]) {
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] + other.m_functions[j]);
+                i++;
+            } else if (m_times[i] > other.m_times[j]) {
+                new_times.push_back(other.m_times[j]);
+                new_functions.push_back(m_functions[i] + other.m_functions[j]);
+                j++;
+            } else {    // this and other have the same time, only push back the time once
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] + other.m_functions[j]);
+                i++;
+                j++;
+            }
         }
+        if (i==m_times.size()){
+            for (size_t k=j ; k<other.m_times.size() ; ++k){
+                new_times.push_back(other.m_times[k]);
+                new_functions.push_back(m_functions[i-1] + other.m_functions[k]);
+            }
+        } else if (j==other.m_times.size()){
+            for (size_t k=i ; k<m_times.size() ; ++k){
+                new_times.push_back(m_times[k]);
+                new_functions.push_back(m_functions[k] + other.m_functions[j-1]);
+            }
+        }
+        m_times = new_times;
+        m_functions = new_functions;
         return *this;
     }
 
     PiecewiseFunction operator-(const PiecewiseFunction& other) const {
-        std::vector<Subfunction> new_functions;
-        for (size_t i = 0; i < m_functions.size(); ++i) {
-            new_functions.push_back(m_functions[i] - other.m_functions[i]);
+        std::vector<double> new_times = {};
+        std::vector<Subfunction> new_functions = {};
+        
+        int i=0, j=0;
+
+        while (i<m_times.size() && j<other.m_times.size())
+        {
+            if (m_times[i] < other.m_times[j]) {
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] - other.m_functions[j]);
+                i++;
+            } else if (m_times[i] > other.m_times[j]) {
+                new_times.push_back(other.m_times[j]);
+                new_functions.push_back(m_functions[i] - other.m_functions[j]);
+                j++;
+            } else {    // this and other have the same time, only push back the time once
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] - other.m_functions[j]);
+                i++;
+                j++;
+            }
         }
-        return PiecewiseFunction(m_times, new_functions);
+        if (i==m_times.size()){
+            for (size_t k=j ; k<other.m_times.size() ; ++k){
+                new_times.push_back(other.m_times[k]);
+                new_functions.push_back(m_functions[i-1] - other.m_functions[k]);
+            }
+        } else if (j==other.m_times.size()){
+            for (size_t k=i ; k<m_times.size() ; ++k){
+                new_times.push_back(m_times[k]);
+                new_functions.push_back(m_functions[k] - other.m_functions[j-1]);
+            }
+        }
+        return PiecewiseFunction(new_times, new_functions);
     }
 
     PiecewiseFunction operator*(const PiecewiseFunction& other) const {
-        std::vector<Subfunction> new_functions;
-        for (size_t i = 0; i < m_functions.size(); ++i) {
-            new_functions.push_back(m_functions[i] * other.m_functions[i]);
+        std::vector<double> new_times = {};
+        std::vector<Subfunction> new_functions = {};
+        
+        int i=0, j=0;
+
+        while (i<m_times.size() && j<other.m_times.size())
+        {
+            if (m_times[i] < other.m_times[j]) {
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] * other.m_functions[j]);
+                i++;
+            } else if (m_times[i] > other.m_times[j]) {
+                new_times.push_back(other.m_times[j]);
+                new_functions.push_back(m_functions[i] * other.m_functions[j]);
+                j++;
+            } else {    // this and other have the same time, only push back the time once
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] * other.m_functions[j]);
+                i++;
+                j++;
+            }
         }
-        return PiecewiseFunction(m_times, new_functions);
+        if (i==m_times.size()){
+            for (size_t k=j ; k<other.m_times.size() ; ++k){
+                new_times.push_back(other.m_times[k]);
+                new_functions.push_back(m_functions[i-1] * other.m_functions[k]);
+            }
+        } else if (j==other.m_times.size()){
+            for (size_t k=i ; k<m_times.size() ; ++k){
+                new_times.push_back(m_times[k]);
+                new_functions.push_back(m_functions[k] * other.m_functions[j-1]);
+            }
+        }
+        return PiecewiseFunction(new_times, new_functions);
     }
 
     PiecewiseFunction operator/(const PiecewiseFunction& other) const {
-        std::vector<Subfunction> new_functions;
-        for (size_t i = 0; i < m_functions.size(); ++i) {
-            new_functions.push_back(m_functions[i] / other.m_functions[i]);
+        std::vector<double> new_times = {};
+        std::vector<Subfunction> new_functions = {};
+        
+        int i=0, j=0;
+
+        while (i<m_times.size() && j<other.m_times.size())
+        {
+            if (m_times[i] < other.m_times[j]) {
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] / other.m_functions[j]);
+                i++;
+            } else if (m_times[i] > other.m_times[j]) {
+                new_times.push_back(other.m_times[j]);
+                new_functions.push_back(m_functions[i] / other.m_functions[j]);
+                j++;
+            } else {    // this and other have the same time, only push back the time once
+                new_times.push_back(m_times[i]);
+                new_functions.push_back(m_functions[i] / other.m_functions[j]);
+                i++;
+                j++;
+            }
         }
-        return PiecewiseFunction(m_times, new_functions);
+        if (i==m_times.size()){
+            for (size_t k=j ; k<other.m_times.size() ; ++k){
+                new_times.push_back(other.m_times[k]);
+                new_functions.push_back(m_functions[i-1] / other.m_functions[k]);
+            }
+        } else if (j==other.m_times.size()){
+            for (size_t k=i ; k<m_times.size() ; ++k){
+                new_times.push_back(m_times[k]);
+                new_functions.push_back(m_functions[k] / other.m_functions[j-1]);
+            }
+        }
+        return PiecewiseFunction(new_times, new_functions);
     }
 
     PiecewiseFunction operator-() const {
@@ -205,13 +366,21 @@ public:
         return *this;
     }
 
-    PiecewiseFunction& operator=(PiecewiseFunction&& other) {
-        if (this != &other) {
-            m_times = std::move(other.m_times);
-            m_functions = std::move(other.m_functions);
-        }
-        return *this;
-    }
+    // PiecewiseFunction& operator=(const PiecewiseFunction& other) {
+    //     if (this != &other) {
+    //         m_times = other.m_times;
+    //         m_functions = other.m_functions;
+    //     }
+    //     return *this;
+    // }
+
+    // PiecewiseFunction& operator=(PiecewiseFunction&& other) {
+    //     if (this != &other) {
+    //         m_times = std::move(other.m_times);
+    //         m_functions = std::move(other.m_functions);
+    //     }
+    //     return *this;
+    // }
 
     friend PiecewiseFunction operator*(double scalar, const PiecewiseFunction& pf) {
         std::vector<Subfunction> new_functions;
@@ -232,21 +401,34 @@ public:
     friend PiecewiseFunction exp(const PiecewiseFunction& pf);
 
     PiecewiseFunction integral() const {
-    std::vector<Subfunction> integral_functions;
-    double previous_time = 0.0;
-    double accumulated_integral = 0.0;
+        std::vector<Subfunction> integral_functions;
+        double previous_time = 0.0;
+        double accumulated_integral = 0.0;
 
-    for (size_t i = 0; i < m_functions.size(); ++i) {
-        Subfunction integral_func = m_functions[i].integral(previous_time);
-        integral_functions.push_back(Subfunction([=](double t) {
-            return accumulated_integral + integral_func(t);
-        }));
-        accumulated_integral += integral_func(m_times[i]);
-        previous_time = m_times[i];
+        for (size_t i = 0; i < m_functions.size(); ++i) {
+            Subfunction integral_func = m_functions[i].integral(previous_time);
+            integral_functions.push_back(Subfunction([=](double t) {
+                return accumulated_integral + integral_func(t);
+            }));
+            accumulated_integral += integral_func(m_times[i]);
+            previous_time = m_times[i];
+        }
+
+        return PiecewiseFunction(m_times, integral_functions);
     }
-
-    return PiecewiseFunction(m_times, integral_functions);
-}
+    
+    PiecewiseFunction shift(double shift) const {   // f.shift(shift) returns the shifted function f(x + shift)
+        std::vector<double> new_times = {};
+        std::vector<Subfunction> new_functions = {};
+        
+        for (size_t i=0 ; i<m_times.size() ; ++i){
+            if (m_times[i] > shift){
+                new_times.push_back(m_times[i] - shift);
+                new_functions.push_back(m_functions[i].shift(shift));
+            }
+        }
+        return PiecewiseFunction(new_times, new_functions);
+    }
 
 private:
     std::vector<double> m_times;
@@ -272,19 +454,21 @@ PiecewiseFunction exp(const PiecewiseFunction& pf) {
 
 class MatrixPiecewiseFunction {
 public:
+    MatrixPiecewiseFunction() 
+        : m_matrix(3, std::vector<PiecewiseFunction>(3)) {}     // matrix of zero functions by default
+
     MatrixPiecewiseFunction(const MatrixPiecewiseFunction& other) 
-        : m_matrix(other.m_matrix), m_pf(other.m_pf) {} 
+        : m_matrix(other.m_matrix) {} 
 
     MatrixPiecewiseFunction(MatrixPiecewiseFunction&& other) 
-        : m_matrix(std::move(other.m_matrix)), m_pf(std::move(other.m_pf)) {} 
+        : m_matrix(std::move(other.m_matrix)) {} 
 
     // ctor to fill the matrix with the same piecewise function
-    MatrixPiecewiseFunction(const PiecewiseFunction& pf) : m_pf(pf) {
-        m_matrix.resize(3, std::vector<PiecewiseFunction>(3, m_pf));
-    }
+    MatrixPiecewiseFunction(const PiecewiseFunction& pf) 
+        : m_matrix(3, std::vector<PiecewiseFunction>(3, pf)) {}
 
     MatrixPiecewiseFunction cofactorMatrix() const {
-        MatrixPiecewiseFunction cofactor(m_pf);
+        MatrixPiecewiseFunction cofactor;
 
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
@@ -331,7 +515,7 @@ public:
         
         // Create a MatrixPiecewiseFunction from the transposed cofactor matrix
         MatrixPiecewiseFunction adjugate = this->transpose();
-        MatrixPiecewiseFunction inverse(m_pf);
+        MatrixPiecewiseFunction inverse;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 inverse.m_matrix[i][j] = adjugate.m_matrix[i][j] / det;
@@ -341,7 +525,7 @@ public:
     }
 
     MatrixPiecewiseFunction transpose() const {
-        MatrixPiecewiseFunction transposed(m_pf);
+        MatrixPiecewiseFunction transposed;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 transposed.m_matrix[i][j] = m_matrix[j][i];
@@ -351,7 +535,7 @@ public:
     }
 
     MatrixPiecewiseFunction integral() const {
-        MatrixPiecewiseFunction result(m_pf);
+        MatrixPiecewiseFunction result;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 result.m_matrix[i][j] = m_matrix[i][j].integral();
@@ -361,7 +545,7 @@ public:
     }
 
     MatrixPiecewiseFunction operator+(const MatrixPiecewiseFunction& other) const {
-        MatrixPiecewiseFunction result(m_pf);
+        MatrixPiecewiseFunction result;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 result.m_matrix[i][j] = m_matrix[i][j] + other.m_matrix[i][j];
@@ -371,7 +555,7 @@ public:
     }
 
     MatrixPiecewiseFunction operator-(const MatrixPiecewiseFunction& other) const {
-        MatrixPiecewiseFunction result(m_pf);
+        MatrixPiecewiseFunction result;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 result.m_matrix[i][j] = m_matrix[i][j] - other.m_matrix[i][j];
@@ -381,7 +565,7 @@ public:
     }
 
     MatrixPiecewiseFunction operator*(const MatrixPiecewiseFunction& other) const {
-        MatrixPiecewiseFunction result(m_pf);
+        MatrixPiecewiseFunction result;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 3; ++k) {
@@ -395,7 +579,6 @@ public:
     MatrixPiecewiseFunction& operator=(const MatrixPiecewiseFunction& other) {
         if (this != &other) {
             m_matrix = other.m_matrix;
-            m_pf = other.m_pf;
         }
         return *this;
     }
@@ -403,13 +586,12 @@ public:
     MatrixPiecewiseFunction& operator=(const MatrixPiecewiseFunction&& other) {
         if (this != &other) {
             m_matrix = std::move(other.m_matrix);
-            m_pf = std::move(other.m_pf);
         }
         return *this;
     }
 
     friend MatrixPiecewiseFunction operator*(const std::vector<std::vector<double>>& c, const MatrixPiecewiseFunction& mpf) {
-        MatrixPiecewiseFunction result(mpf.m_pf);
+        MatrixPiecewiseFunction result;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 3; ++k) {
@@ -421,7 +603,7 @@ public:
     }
 
     friend MatrixPiecewiseFunction operator*(const MatrixPiecewiseFunction& mpf, const std::vector<std::vector<double>>& c) {
-        MatrixPiecewiseFunction result(mpf.m_pf);
+        MatrixPiecewiseFunction result;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 3; ++k) {
@@ -463,5 +645,4 @@ public:
 
 private:
     std::vector<std::vector<PiecewiseFunction>> m_matrix;
-    PiecewiseFunction m_pf;
 };

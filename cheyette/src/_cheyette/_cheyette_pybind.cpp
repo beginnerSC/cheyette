@@ -2,24 +2,65 @@
 #include "piecewisefunction.hpp"
 #include "example1.hpp"
 #include "example2.hpp"
+#include <array>
 
-PYBIND11_MODULE(_ppc, m) {
+double h(double t)
+{
+    std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
+    std::vector<double> k = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
+    PiecewiseFunction k_int(times, k, true);
+    PiecewiseFunction h_ = exp(-k_int);
+
+    return h_(t);
+}
+
+double h_shifted(double t, double shift)
+{
+    std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
+    std::vector<double> k = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
+    PiecewiseFunction k_int(times, k, true);
+    PiecewiseFunction h_ = exp(-k_int);
+
+    return h_.shift(shift)(t);
+}
+
+
+PYBIND11_MODULE(_cheyette, m) {
     m.doc() = "This is _cheyette's docstring.";
     m.def("add", &add, "Add up two numbers.");
     m.def("sub", &sub, "Find difference of two numbers.");
+
+    m.def("h",          &h);
+    m.def("h_shifted",  &h_shifted);
 }
 
-void foo(){
+void main0(){
     int c, d;
     
     c = add(1, 2);
     d = sub(1, 2);
 }
 
-int main()
+int main1()
+{
+    std::vector<double> times1 = {5, 13, 24};
+    std::vector<double> values1 = {10, 23, 25};
+
+    std::vector<double> times2 = {8, 15, 25};
+    std::vector<double> values2 = {12, 24, 26};
+
+    PiecewiseFunction pf1(times1, values1), pf2(times2, values2);
+
+    std::vector<double> points = {4, 7, 12, 14, 23, 24.5};
+    for (double p : points) {
+        std::cout << (pf1 / pf2)(p) << std::endl;
+    }
+    return 0;
+}
+
+int main2()
 {
     std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
-    std::vector<double> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     
     std::vector<double> k1 = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
     std::vector<double> k2 = {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}; 
@@ -40,8 +81,6 @@ int main()
     std::vector<double> f1 = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
     std::vector<double> f2 = {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}; 
     std::vector<double> f3 = {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6};
-    
-    PiecewiseFunction zeroFunction(times, zeros);
     
     PiecewiseFunction k1_int(times, k1, true);
     PiecewiseFunction k2_int(times, k1, true);
@@ -71,7 +110,7 @@ int main()
     PiecewiseFunction f2_(times, f2);
     PiecewiseFunction f3_(times, f3);
 
-    MatrixPiecewiseFunction H(zeroFunction), Lambda(zeroFunction), A(zeroFunction), B(zeroFunction), F(zeroFunction);
+    MatrixPiecewiseFunction H, Lambda, A, B, F;
 
     std::vector<std::vector<double>> DDT(3, std::vector<double>(3, 0));
 
@@ -100,8 +139,102 @@ int main()
     Lambda[2][2] = lambda3_;
 
     MatrixPiecewiseFunction sigma_f_0 = Lambda*(A + B*F);
+
+    std::vector<double> deltas = {2, 5, 10};
+
     MatrixPiecewiseFunction H_f = H;
 
+    (H*( H.inverse() * H_f.transpose().inverse() * sigma_f_0 * DDT * sigma_f_0 * H_f.inverse() * H.inverse() ).integral() * H).printEvaluated(3.5);
+
+    return 0;
+}
+
+int main3()
+{
+    std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
+    std::vector<double> values =   {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
+
+    PiecewiseFunction f(times, values);
+
+    double shift = 0.33; 
+    double time = 0.2;
+    std::cout << f(time+shift) << ", " << f.shift(shift)(time) << std::endl;
+
+    return 0;
+}
+
+int main()
+{
+    std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
+    
+    std::vector<std::vector<double>> k =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
+                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3},
+                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+    
+    std::vector<std::vector<double>> lambda =  {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03},
+                                                {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
+                                                {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+    
+    std::vector<std::vector<double>> a =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
+                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
+                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+    
+    std::vector<std::vector<double>> b =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
+                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3},
+                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+    
+    std::vector<std::vector<double>> f =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
+                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
+                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+
+    std::vector<double> delta = {2, 5, 10};
+    std::vector<PiecewiseFunction> k_int(3), h(3), h_inv(3), lambda_(3), a_(3), b_(3), f_(3);
+    MatrixPiecewiseFunction H, Lambda, A, B, F, H_f;
+
+    for (size_t i=0 ; i<3 ; ++i)
+    {
+        k_int[i] = PiecewiseFunction(times, k[i], true);
+        PiecewiseFunction k_int_(times, k[i], true);
+
+        std::cout << k_int[0](3.5) << std::endl;
+
+        h[i] = exp(-k_int[i]);
+        h_inv[i] = exp(k_int[i]);
+        lambda_[i] = PiecewiseFunction(times, lambda[i]);
+        a_[i] = PiecewiseFunction(times, a[i]);
+        b_[i] = PiecewiseFunction(times, b[i]);
+        f_[i] = PiecewiseFunction(times, f[i]);
+
+        H[i][i] = h[i];
+        Lambda[i][i] = lambda_[i];
+        A[i][i] = a_[i];
+        B[i][i] = b_[i];
+        F[i][i] = f_[i];
+    }
+
+    MatrixPiecewiseFunction sigma_f_0 = Lambda*(A + B*F);
+    std::vector<std::vector<double>> DDT(3, std::vector<double>(3, 0));
+
+    DDT[0][0] = 1.00; DDT[0][1] = 0.85; DDT[0][2] = 0.75;
+    DDT[1][0] = 0.85; DDT[1][1] = 1.00; DDT[1][2] = 0.65;
+    DDT[2][0] = 0.75; DDT[2][1] = 0.65; DDT[2][2] = 1.00;
+
+    for (size_t i=0 ; i<3 ; ++i){
+        for (size_t j=0 ; j<3 ; ++j){
+            H_f[i][j] = h[i].shift(delta[j])/h[i];
+        }
+    }
+    PiecewiseFunction k_int_(times, k[0], true);
+    PiecewiseFunction h0 = exp(-k_int_);
+
+    k_int_(3.5);
+    h0(3.5);
+    h[0](3.5);
+
+    H_f.printEvaluated(3.5);
+    H_f.transpose().printEvaluated(3.5);
+    H_f.transpose().inverse().printEvaluated(3.5);
+    
     (H*( H.inverse() * H_f.transpose().inverse() * sigma_f_0 * DDT * sigma_f_0 * H_f.inverse() * H.inverse() ).integral() * H).printEvaluated(3.5);
 
     return 0;
