@@ -9,6 +9,7 @@
 
 class Subfunction {
 public:
+    Subfunction() : m_func([](double t) { return 0; }) {}
     Subfunction(std::function<double(double)> func) : m_func(func) {}
     Subfunction(const Subfunction& other) : m_func(other.m_func) {}
     double operator()(double t) const {
@@ -64,6 +65,7 @@ public:
     }
     // Integral function using 10-point Gaussian quadrature
     Subfunction integral(double a) const {
+        auto shared_func = std::make_shared<Subfunction>(*this);
         return Subfunction([=](double t) {
             // 10-point Gaussian quadrature weights and abscissae
             static const double weights[10] = {
@@ -87,7 +89,7 @@ public:
 
             for (int i = 0; i < 10; ++i) {
                 double x = midpoint + half_length * abscissae[i];
-                integral_value += weights[i] * m_func(x);
+                integral_value += weights[i] * (shared_func->m_func)(x);
             }
 
             integral_value *= half_length;
@@ -123,7 +125,7 @@ public:
     PiecewiseFunction(const std::vector<double>& times, const std::vector<double>& constants, bool integrate = false) {
         m_times = times;
         m_times.back() = 200;
-
+    
         if (integrate) {
             // Compute the integral of the piecewise constant function
             std::vector<Subfunction> integral_functions;
@@ -366,14 +368,6 @@ public:
         return *this;
     }
 
-    // PiecewiseFunction& operator=(const PiecewiseFunction& other) {
-    //     if (this != &other) {
-    //         m_times = other.m_times;
-    //         m_functions = other.m_functions;
-    //     }
-    //     return *this;
-    // }
-
     // PiecewiseFunction& operator=(PiecewiseFunction&& other) {
     //     if (this != &other) {
     //         m_times = std::move(other.m_times);
@@ -569,7 +563,7 @@ public:
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 3; ++k) {
-                    result.m_matrix[i][j] = m_matrix[i][k] * other.m_matrix[k][j];
+                    result.m_matrix[i][j] = result.m_matrix[i][j] + m_matrix[i][k] * other.m_matrix[k][j];
                 }
             }
         }
@@ -595,7 +589,7 @@ public:
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 3; ++k) {
-                    result.m_matrix[i][j] = c[i][k] * mpf.m_matrix[k][j];
+                    result.m_matrix[i][j] = result.m_matrix[i][j] + c[i][k] * mpf.m_matrix[k][j];
                 }
             }
         }
@@ -607,7 +601,7 @@ public:
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 3; ++k) {
-                    result.m_matrix[i][j] = c[i][k] * mpf.m_matrix[k][j];
+                    result.m_matrix[i][j] = result.m_matrix[i][j] + c[i][k] * mpf.m_matrix[k][j];
                 }
             }
         }
@@ -632,6 +626,7 @@ public:
             }
             std::cout << std::endl;
         }
+        std::cout << std::endl;
     }
 
     // Overload operator[] to access rows and elements
