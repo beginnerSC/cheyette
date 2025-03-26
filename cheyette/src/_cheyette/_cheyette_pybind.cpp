@@ -64,97 +64,6 @@ int main1()
     return 0;
 }
 
-int main2()
-{
-    std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
-    
-    std::vector<double> k1 = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
-    std::vector<double> k2 = {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}; 
-    std::vector<double> k3 = {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6};
-    
-    std::vector<double> lambda1 = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
-    std::vector<double> lambda2 = {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}; 
-    std::vector<double> lambda3 = {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6};
-    
-    std::vector<double> a1 = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
-    std::vector<double> a2 = {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}; 
-    std::vector<double> a3 = {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6};
-    
-    std::vector<double> b1 = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
-    std::vector<double> b2 = {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}; 
-    std::vector<double> b3 = {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6};
-    
-    std::vector<double> f1 = {0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03};
-    std::vector<double> f2 = {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}; 
-    std::vector<double> f3 = {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6};
-    
-    PiecewiseFunction k1_int(times, k1, true);
-    PiecewiseFunction k2_int(times, k1, true);
-    PiecewiseFunction k3_int(times, k1, true);
-    
-    PiecewiseFunction h1 = exp(-k1_int);
-    PiecewiseFunction h2 = exp(-k2_int);
-    PiecewiseFunction h3 = exp(-k3_int);
-    
-    PiecewiseFunction h1_inv = exp(k1_int);
-    PiecewiseFunction h2_inv = exp(k2_int);
-    PiecewiseFunction h3_inv = exp(k3_int);
-    
-    PiecewiseFunction lambda1_(times, lambda1);
-    PiecewiseFunction lambda2_(times, lambda2);
-    PiecewiseFunction lambda3_(times, lambda3);
-    
-    PiecewiseFunction a1_(times, a1);
-    PiecewiseFunction a2_(times, a2);
-    PiecewiseFunction a3_(times, a3);
-    
-    PiecewiseFunction b1_(times, b1);
-    PiecewiseFunction b2_(times, b2);
-    PiecewiseFunction b3_(times, b3);
-    
-    PiecewiseFunction f1_(times, f1);
-    PiecewiseFunction f2_(times, f2);
-    PiecewiseFunction f3_(times, f3);
-
-    MatrixPiecewiseFunction H, Lambda, A, B, F;
-
-    std::vector<std::vector<double>> DDT(3, std::vector<double>(3, 0));
-
-    DDT[0][0] = 1.00; DDT[0][1] = 0.85; DDT[0][2] = 0.75;
-    DDT[1][0] = 0.85; DDT[1][1] = 1.00; DDT[1][2] = 0.65;
-    DDT[2][0] = 0.75; DDT[2][1] = 0.65; DDT[2][2] = 1.00;
-    
-    H[0][0] = h1;
-    H[1][1] = h2;
-    H[2][2] = h3;
-
-    A[0][0] = a1_;
-    A[1][1] = a2_;
-    A[2][2] = a3_;
-
-    B[0][0] = b1_;
-    B[1][1] = b2_;
-    B[2][2] = b3_;
-
-    F[0][0] = f1_;
-    F[1][1] = f2_;
-    F[2][2] = f3_;
-
-    Lambda[0][0] = lambda1_;
-    Lambda[1][1] = lambda2_;
-    Lambda[2][2] = lambda3_;
-
-    MatrixPiecewiseFunction sigma_f_0 = Lambda*(A + B*F);
-
-    std::vector<double> deltas = {2, 5, 10};
-
-    MatrixPiecewiseFunction H_f = H;
-
-    (H*( H.inverse() * H_f.transpose().inverse() * sigma_f_0 * DDT * sigma_f_0 * H_f.inverse() * H.inverse() ).integral() * H).printEvaluated(3.5);
-
-    return 0;
-}
-
 int main3()
 {
     std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
@@ -188,24 +97,25 @@ std::vector<std::vector<double>> y_bar(double t)
     std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
     
     std::vector<std::vector<double>> k =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
-                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3},
-                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+                                            {0.016, 0.021, 0.026, 0.028, 0.029, 0.030, 0.031, 0.031, 0.031, 0.031}, 
+                                            {0.018, 0.023, 0.028, 0.03, 0.031, 0.032, 0.033, 0.033, 0.033, 0.033}};
     
-    std::vector<std::vector<double>> lambda =  {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03},
-                                                {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
-                                                {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
-    
+    std::vector<std::vector<double>> lambda =  {{0.00025   , 0.00033333, 0.00041667, 0.00045   , 0.00046667, 0.00048333, 0.0005    , 0.0005    , 0.0005    , 0.0005    },
+                                                {0.0025    , 0.00333333, 0.00416667, 0.0045    , 0.00466667, 0.00483333, 0.005     , 0.005     , 0.005     , 0.005     },
+                                                {0.005     , 0.00583333, 0.00666667, 0.0075    , 0.00833333, 0.00916667, 0.01      , 0.01      , 0.01      , 0.01      }};
+
     std::vector<std::vector<double>> a =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
-                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
-                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
-    
+                                            {0.02, 0.03, 0.035, 0.037, 0.038, 0.039, 0.04, 0.04, 0.04, 0.04}, 
+                                            {0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06, 0.06, 0.06, 0.06}};
+        
     std::vector<std::vector<double>> b =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
-                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3},
-                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
-    
+                                            {0.02, 0.03, 0.035, 0.037, 0.038, 0.039, 0.04, 0.04, 0.04, 0.04}, 
+                                            {0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06, 0.06, 0.06, 0.06}};
+        
     std::vector<std::vector<double>> f =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
-                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
-                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+                                            {0.02, 0.03, 0.035, 0.037, 0.038, 0.039, 0.04, 0.04, 0.04, 0.04}, 
+                                            {0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06, 0.06, 0.06, 0.06}};
+    
 
     std::vector<double> delta = {2, 5, 10};
     std::vector<PiecewiseFunction> k_int(3), h(3), h_inv(3), lambda_(3), a_(3), b_(3), f_(3);
@@ -248,28 +158,79 @@ std::vector<std::vector<double>> y_bar(double t)
     return (H*( H.inverse() * H_f.transpose().inverse() * sigma_f_0 * DDT * sigma_f_0 * H_f.inverse() * H.inverse() ).integral() * H).evaluate(t);
 }
 
-int main(){
+#include <iostream>
+#include <Eigen/Sparse>
+
+// Define a custom class
+class MyData {
+public:
+    int value;
+    MyData() : value(0) {}
+    MyData(int v) : value(v) {}
+
+    // Overload operators as needed for Eigen
+    MyData operator+(const MyData& other) const {
+        return MyData(value + other.value);
+    }
+
+    MyData& operator+=(const MyData& other) {
+        value += other.value;
+        return *this;
+    }
+
+    MyData operator*(const int& scalar) const {
+      return MyData(value * scalar);
+    }
+};
+
+// Declare the SparseMatrix with the custom class
+typedef Eigen::SparseMatrix<MyData> MySparseMatrix;
+
+int main() {
+    // Create a sparse matrix
+    MySparseMatrix mat(4, 4);
+
+    // Fill the matrix with some values
+    std::vector<Eigen::Triplet<MyData>> c1;
+    c1.reserve(3);
+    c1.push_back({0, 0, MyData(1)});
+    c1.push_back({1, 2, MyData(2)});
+    c1.push_back({2, 1, MyData(3)});
+    mat.setFromTriplets(c1.begin(), c1.end());
+
+    // // won't compile
+    // std::vector<Eigen::Triplet<PiecewiseFunction>> c2;
+    // c2.reserve(3);
+    // c2.push_back({0, 0, PiecewiseFunction()});
+    // c2.push_back({1, 2, PiecewiseFunction()});
+    // c2.push_back({2, 1, PiecewiseFunction()});
+    // mat.setFromTriplets(c2.begin(), c2.end());
+
+    return 0;
+}
+
+int main4(){
     std::vector<double> times = {0.09, 0.25, 0.5, 1, 2, 3, 5, 10, 20, 30};
     
     std::vector<std::vector<double>> k =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
-                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3},
-                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
-    
-    std::vector<std::vector<double>> lambda =  {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03},
-                                                {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
-                                                {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+                                            {0.016, 0.021, 0.026, 0.028, 0.029, 0.030, 0.031, 0.031, 0.031, 0.031}, 
+                                            {0.018, 0.023, 0.028, 0.03, 0.031, 0.032, 0.033, 0.033, 0.033, 0.033}};
+
+    std::vector<std::vector<double>> lambda =  {{0.00025   , 0.00033333, 0.00041667, 0.00045   , 0.00046667, 0.00048333, 0.0005    , 0.0005    , 0.0005    , 0.0005    },
+                                                {0.0025    , 0.00333333, 0.00416667, 0.0045    , 0.00466667, 0.00483333, 0.005     , 0.005     , 0.005     , 0.005     },
+                                                {0.005     , 0.00583333, 0.00666667, 0.0075    , 0.00833333, 0.00916667, 0.01      , 0.01      , 0.01      , 0.01      }};
     
     std::vector<std::vector<double>> a =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
-                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
-                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+                                            {0.02, 0.03, 0.035, 0.037, 0.038, 0.039, 0.04, 0.04, 0.04, 0.04}, 
+                                            {0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06, 0.06, 0.06, 0.06}};
     
     std::vector<std::vector<double>> b =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
-                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3},
-                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+                                            {0.02, 0.03, 0.035, 0.037, 0.038, 0.039, 0.04, 0.04, 0.04, 0.04}, 
+                                            {0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06, 0.06, 0.06, 0.06}};
     
     std::vector<std::vector<double>> f =   {{0.015, 0.02, 0.025, 0.027, 0.028, 0.029, 0.03, 0.03, 0.03, 0.03}, 
-                                            {0.15, 0.2, 0.25, 0.27, 0.28, 0.29, 0.3, 0.3, 0.3, 0.3}, 
-                                            {0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.6, 0.6, 0.6}};
+                                            {0.02, 0.03, 0.035, 0.037, 0.038, 0.039, 0.04, 0.04, 0.04, 0.04}, 
+                                            {0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06, 0.06, 0.06, 0.06}};
 
     std::vector<double> delta = {2, 5, 10};
     std::vector<PiecewiseFunction> k_int(3), h(3), h_inv(3), lambda_(3), a_(3), b_(3), f_(3);
@@ -311,13 +272,7 @@ int main(){
    
     auto start = std::chrono::high_resolution_clock::now();
 
-    // H_f.transpose().inverse().printEvaluated(25);    // looks like a constant matrix, doesn't feel right
-    // H_f.transpose().inverse().printEvaluated(3.5);
-    // H.inverse().printEvaluated(3.5);
-    // (sigma_f_0 * DDT * sigma_f_0).printEvaluated(3.5);
-    // H.printEvaluated(3.5);
-
-    (H*( H.inverse() * H_f.transpose().inverse() * sigma_f_0 * DDT * sigma_f_0 * H_f.inverse() * H.inverse() ).integral() * H).printEvaluated(3.5);
+    (H*( H.inverse() * H_f.transpose().inverse() * sigma_f_0 * DDT * sigma_f_0 * H_f.inverse() * H.inverse() ).integral() * H).printEvaluated(25);     // integral is slow, otherwise it's fast
 
     // Code to be timed
     auto end = std::chrono::high_resolution_clock::now();

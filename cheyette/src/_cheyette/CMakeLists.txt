@@ -14,11 +14,13 @@ include(FetchContent)
 # )
 # FetchContent_MakeAvailable(pybind11)
 
+set(PYBIND11_FINDPYTHON ON)
 set(pybind11_DIR "D:/Users/zhang/AppData/Local/pypoetry/Cache/virtualenvs/cheyette-5_iMRCa0-py3.12/Lib/site-packages/pybind11/share/cmake/pybind11")
 find_package(pybind11 REQUIRED)
 
 include_directories("D:/Users/zhang/AppData/Local/pypoetry/Cache/virtualenvs/cheyette-5_iMRCa0-py3.12/Lib/site-packages/pybind11/include")
-include_directories("D:/python3.12.4/include")   # to see Python.py
+include_directories("D:/python3.12.4/include")        # to see Python.h
+include_directories("D:/3rdparty/eigen-3.4.0")        # to see Eigen
 
 link_directories("D:/python3.12.4/libs")   # for linker to see python312.lib
 

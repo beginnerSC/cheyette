@@ -1,3 +1,4 @@
+#pragma once
 #include <functional>
 #include <iostream>
 #include <vector>
@@ -5,6 +6,8 @@
 #include <algorithm>
 #include <utility>
 #include <limits>
+#include <Eigen/Core>
+#include <Eigen/Sparse>
 
 
 class Subfunction {
@@ -107,6 +110,10 @@ public:
     PiecewiseFunction() {  // zero function by default
         m_times = {200};
         m_functions.resize(m_times.size(), Subfunction([](double) { return 0.0; }));
+    }
+    PiecewiseFunction(const double& c) {
+        m_times = {200};
+        m_functions.resize(m_times.size(), Subfunction([&](double) { return c; }));
     }
     PiecewiseFunction(const std::vector<double>& times, const std::vector<Subfunction>& functions)
         : m_times(times), m_functions(functions) {
@@ -429,6 +436,26 @@ private:
     std::vector<Subfunction> m_functions;
 };
 
+// Specialize Eigen::NumTraits for MyFunctor
+namespace Eigen {
+    template<>
+    struct NumTraits<PiecewiseFunction> {
+        typedef PiecewiseFunction Real;
+        typedef PiecewiseFunction NonInteger;
+        typedef PiecewiseFunction Nested;
+        enum {
+            IsComplex = 0,
+            IsInteger = 0,
+            IsSigned = 1,
+            RequireInitialization = 1,
+            ReadCost = 1,
+            AddCost = 3,
+            MulCost = 3
+        };
+    };
+} // namespace Eigen
+
+
 Subfunction exp(const Subfunction& f) {
     auto shared_f = std::make_shared<Subfunction>(f);
     return Subfunction([=](double t) {
@@ -444,6 +471,76 @@ PiecewiseFunction exp(const PiecewiseFunction& pf) {
     }
     return PiecewiseFunction(pf.m_times, new_functions);
 }
+
+// class DiagonalMatrixPF : public Eigen::SparseMatrix<double> {};
+class DiagonalMatrixPF : public Eigen::SparseMatrix<PiecewiseFunction> {
+public:
+    DiagonalMatrixPF() : Eigen::SparseMatrix<PiecewiseFunction>(3, 3) {}
+    
+    DiagonalMatrixPF(const std::vector<PiecewiseFunction>& elements) : Eigen::SparseMatrix<PiecewiseFunction>(3, 3) {
+        // std::vector<Eigen::Triplet<PiecewiseFunction>> coefficients;
+        // coefficients.reserve(3);
+        
+        // coefficients.push_back({0, 0, elements[0]});
+        // coefficients.push_back({1, 1, elements[1]});
+        // coefficients.push_back({2, 2, elements[2]});
+        
+        // this->setFromTriplets(coefficients.begin(), coefficients.end());
+    }
+};
+
+
+class EigenMatrixPF : public Eigen::Matrix<PiecewiseFunction, 3, 3> {
+public:
+    EigenMatrixPF() : Eigen::Matrix<PiecewiseFunction, 3, 3>() {}
+    EigenMatrixPF(const EigenMatrixPF& other) : Eigen::Matrix<PiecewiseFunction, 3, 3>(other) {}
+    EigenMatrixPF(const Eigen::Matrix<PiecewiseFunction, 3, 3>& other) : Eigen::Matrix<PiecewiseFunction, 3, 3>(other) {}
+    // EigenMatrixPF(EigenMatrixPF&& other) : Eigen::Matrix<PiecewiseFunction, 3, 3>(std::move(other)) {}
+
+    Eigen::Matrix3d evaluate(const double& t) const {
+        Eigen::Matrix3d evaluated;
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                evaluated(i, j) = (*this)(i, j)(t);
+            }
+        }
+        return evaluated;
+    }
+
+    void printEvaluated(const double& t) const {
+        Eigen::Matrix3d res = this->evaluate(t);
+        for (size_t i = 0; i < 3; ++i) {
+            for (size_t j = 0; j < 3; ++j) {
+                std::cout << res(i, j) << ", ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+};
+
+void operator*(const EigenMatrixPF& mat, const DiagonalMatrixPF& diag) {
+    // Eigen::Matrix<PiecewiseFunction, 3, 3> mpf1 = static_cast<const Eigen::Matrix<PiecewiseFunction, 3, 3>&>(mat);
+    // Eigen::SparseMatrix<PiecewiseFunction> mpf2 = static_cast<const Eigen::SparseMatrix<PiecewiseFunction>&>(diag);  // won't compile. why? 
+}
+
+// EigenMatrixPF operator*(const EigenMatrixPF& mat, const DiagonalMatrixPF& diag) {
+//     Eigen::Matrix<PiecewiseFunction, 3, 3> mpf1 = static_cast<const Eigen::Matrix<PiecewiseFunction, 3, 3>&>(mat);
+//     Eigen::SparseMatrix<PiecewiseFunction> mpf2 = static_cast<const Eigen::SparseMatrix<PiecewiseFunction>&>(diag);
+    
+//     return EigenMatrixPF(mpf1 * mpf2);
+// }
+
+
+// EigenMatrixPF operator*(const EigenMatrixPF& mat, const DiagonalMatrixPF& diag) {
+//     EigenMatrixPF result;
+//     // for (int i = 0; i < 3; ++i) {
+//     //     for (int j = 0; j < 3; ++j) {
+//     //         result(i, j) = mat(i, j) * diag.coeff(j, j);  // multiply matrix element with corresponding diagonal element
+//     //     }
+//     // }
+//     return result;
+// }
 
 
 class MatrixPiecewiseFunction {
@@ -469,14 +566,13 @@ public:
                 std::vector<std::vector<PiecewiseFunction>> minorMatrix(2, std::vector<PiecewiseFunction>(2));
                 
                 // Fill the minor matrix
-                int minorRow = 0;
-                for (int row = 0; row < 3; ++row) {
+                for (size_t row = 0; row < 3; ++row) {
                     if (row == i) continue;
-                    int minorCol = 0;
-                    for (int col = 0; col < 3; ++col) {
+                    size_t minorRow = (row < i) ? row : row - 1;
+                    for (size_t col = 0; col < 3; ++col) {
                         if (col == j) continue;
+                        size_t minorCol = (col < j) ? col : col - 1;
                         minorMatrix[minorRow][minorCol] = m_matrix[row][col];
-                        minorCol++;
                     }
                     minorRow++;
                 }
@@ -504,11 +600,8 @@ public:
 
     MatrixPiecewiseFunction inverse() const {
         PiecewiseFunction det = this->determinant();
-        // assuming determinant is not zero)
-        MatrixPiecewiseFunction cofactor = this->cofactorMatrix();
-        
-        // Create a MatrixPiecewiseFunction from the transposed cofactor matrix
-        MatrixPiecewiseFunction adjugate = this->transpose();
+        MatrixPiecewiseFunction adjugate = this->cofactorMatrix().transpose();
+
         MatrixPiecewiseFunction inverse;
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
