@@ -1,4 +1,4 @@
-import subprocess, shutil, os
+import subprocess, shutil
 
 subprocess.check_call(['cmake', '-S', 'cheyette/src/_cheyette', '-B', 'build'])
 subprocess.check_call(['cmake', '--build', 'build'])
