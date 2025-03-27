@@ -104,7 +104,6 @@ private:
     std::function<double(double)> m_func;
 };
 
-
 class PiecewiseFunction {
 public:
     PiecewiseFunction() {  // zero function by default
@@ -436,33 +435,12 @@ private:
     std::vector<Subfunction> m_functions;
 };
 
-// Specialize Eigen::NumTraits for MyFunctor
-namespace Eigen {
-    template<>
-    struct NumTraits<PiecewiseFunction> {
-        typedef PiecewiseFunction Real;
-        typedef PiecewiseFunction NonInteger;
-        typedef PiecewiseFunction Nested;
-        enum {
-            IsComplex = 0,
-            IsInteger = 0,
-            IsSigned = 1,
-            RequireInitialization = 1,
-            ReadCost = 1,
-            AddCost = 3,
-            MulCost = 3
-        };
-    };
-} // namespace Eigen
-
-
 Subfunction exp(const Subfunction& f) {
     auto shared_f = std::make_shared<Subfunction>(f);
     return Subfunction([=](double t) {
         return std::exp((*shared_f)(t));
     });
 }
-
 
 PiecewiseFunction exp(const PiecewiseFunction& pf) {
     std::vector<Subfunction> new_functions;
@@ -472,23 +450,64 @@ PiecewiseFunction exp(const PiecewiseFunction& pf) {
     return PiecewiseFunction(pf.m_times, new_functions);
 }
 
-// class DiagonalMatrixPF : public Eigen::SparseMatrix<double> {};
 class DiagonalMatrixPF : public Eigen::SparseMatrix<PiecewiseFunction> {
 public:
     DiagonalMatrixPF() : Eigen::SparseMatrix<PiecewiseFunction>(3, 3) {}
-    
+    DiagonalMatrixPF(const Eigen::SparseMatrix<PiecewiseFunction>& matrix) : Eigen::SparseMatrix<PiecewiseFunction>(matrix) {}
     DiagonalMatrixPF(const std::vector<PiecewiseFunction>& elements) : Eigen::SparseMatrix<PiecewiseFunction>(3, 3) {
-        // std::vector<Eigen::Triplet<PiecewiseFunction>> coefficients;
-        // coefficients.reserve(3);
-        
-        // coefficients.push_back({0, 0, elements[0]});
-        // coefficients.push_back({1, 1, elements[1]});
-        // coefficients.push_back({2, 2, elements[2]});
-        
-        // this->setFromTriplets(coefficients.begin(), coefficients.end());
+        std::vector<Eigen::Triplet<PiecewiseFunction>> triplets;
+        triplets.reserve(3);
+
+        triplets.push_back({0, 0, elements[0]});
+        triplets.push_back({1, 1, elements[1]});
+        triplets.push_back({2, 2, elements[2]});
+
+        this->setFromTriplets(triplets.begin(), triplets.end());
+    }
+
+    DiagonalMatrixPF operator+(const DiagonalMatrixPF& other) const {
+        Eigen::SparseMatrix<PiecewiseFunction> result = static_cast<const Eigen::SparseMatrix<PiecewiseFunction>&>(*this) +
+                                                        static_cast<const Eigen::SparseMatrix<PiecewiseFunction>&>(other);
+        return DiagonalMatrixPF(result);
+    }
+
+    DiagonalMatrixPF operator*(const DiagonalMatrixPF& other) const {
+        Eigen::SparseMatrix<PiecewiseFunction> result = static_cast<const Eigen::SparseMatrix<PiecewiseFunction>&>(*this) *
+                                                        static_cast<const Eigen::SparseMatrix<PiecewiseFunction>&>(other);
+        return DiagonalMatrixPF(result);
+    }
+
+    // DiagonalMatrixPF inverse() {
+    //     DiagonalMatrixPF result;
+    //     for (int k = 0; k < this->outerSize(); ++k) {
+    //         for (Eigen::SparseMatrix<PiecewiseFunction>::InnerIterator it(*this, k); it; ++it) {
+    //             result.coeffRef(it.row(), it.col()) = it.value().inverse();  // need PiecewiseFunction::inverse() for this to work
+    //         }
+    //     }
+    //     return result;
+    // }
+
+    Eigen::Matrix3d evaluate(const double& t) const {
+        Eigen::Matrix3d evaluated;
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                evaluated(i, j) = this->coeff(i, j)(t);
+            }
+        }
+        return evaluated;
+    }
+
+    void printEvaluated(const double& t) const {
+        Eigen::Matrix3d res = this->evaluate(t);
+        for (size_t i = 0; i < 3; ++i) {
+            for (size_t j = 0; j < 3; ++j) {
+                std::cout << res(i, j) << ", ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
     }
 };
-
 
 class EigenMatrixPF : public Eigen::Matrix<PiecewiseFunction, 3, 3> {
 public:
@@ -496,7 +515,85 @@ public:
     EigenMatrixPF(const EigenMatrixPF& other) : Eigen::Matrix<PiecewiseFunction, 3, 3>(other) {}
     EigenMatrixPF(const Eigen::Matrix<PiecewiseFunction, 3, 3>& other) : Eigen::Matrix<PiecewiseFunction, 3, 3>(other) {}
     // EigenMatrixPF(EigenMatrixPF&& other) : Eigen::Matrix<PiecewiseFunction, 3, 3>(std::move(other)) {}
+    
+    EigenMatrixPF integral() const {
+        EigenMatrixPF result;
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                result(i, j) = (*this)(i, j).integral();
+            }
+        }
+        return result;
+    }
 
+    EigenMatrixPF operator+(const EigenMatrixPF& other) const {
+        Eigen::Matrix<PiecewiseFunction, 3, 3> result = static_cast<const Eigen::Matrix<PiecewiseFunction, 3, 3>&>(*this) +
+                                                        static_cast<const Eigen::Matrix<PiecewiseFunction, 3, 3>&>(other);
+        return EigenMatrixPF(result);
+    }
+
+    EigenMatrixPF operator*(const EigenMatrixPF& other) const {
+        Eigen::Matrix<PiecewiseFunction, 3, 3> result = static_cast<const Eigen::Matrix<PiecewiseFunction, 3, 3>&>(*this) *
+                                                        static_cast<const Eigen::Matrix<PiecewiseFunction, 3, 3>&>(other);
+        return EigenMatrixPF(result);
+    }
+
+    EigenMatrixPF transpose() const {
+        return EigenMatrixPF(Eigen::Matrix<PiecewiseFunction, 3, 3>::transpose());
+    }
+
+    EigenMatrixPF cofactorMatrix() const {
+        EigenMatrixPF cofactor;
+
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                Eigen::Matrix<PiecewiseFunction, 2, 2> minorMatrix;
+                
+                // Fill the minor matrix
+                for (size_t row = 0; row < 3; ++row) {
+                    if (row == i) continue;
+                    size_t minorRow = (row < i) ? row : row - 1;
+                    for (size_t col = 0; col < 3; ++col) {
+                        if (col == j) continue;
+                        size_t minorCol = (col < j) ? col : col - 1;
+                        minorMatrix(minorRow, minorCol) = (*this)(row, col);
+                    }
+                    minorRow++;
+                }
+                // Compute the determinant of the minor matrix
+                PiecewiseFunction minorDet = minorMatrix(0, 0) * minorMatrix(1, 1) - minorMatrix(0, 1) * minorMatrix(1, 0);
+
+                // Compute the cofactor
+                cofactor(i, j) = ((i + j) % 2 == 0 ? 1 : -1) * minorDet;
+            }
+        }
+        return cofactor;
+    }
+
+    PiecewiseFunction determinant() const {
+        EigenMatrixPF cofactor = cofactorMatrix();
+
+        // Compute the determinant using the first row
+        PiecewiseFunction det = (*this)(0, 0) * cofactor(0, 0) +
+                                (*this)(0, 1) * cofactor(0, 1) +
+                                (*this)(0, 2) * cofactor(0, 2);
+        
+        return det;
+    }
+
+    EigenMatrixPF inverse() const {
+        PiecewiseFunction det = determinant();
+        EigenMatrixPF adjugate = cofactorMatrix().transpose();
+
+        EigenMatrixPF inverse;
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                inverse(i, j) = adjugate(i, j) / det;
+            }
+        }
+        return inverse;
+    }
+    
     Eigen::Matrix3d evaluate(const double& t) const {
         Eigen::Matrix3d evaluated;
         for (int i = 0; i < 3; ++i) {
@@ -519,29 +616,93 @@ public:
     }
 };
 
-void operator*(const EigenMatrixPF& mat, const DiagonalMatrixPF& diag) {
-    // Eigen::Matrix<PiecewiseFunction, 3, 3> mpf1 = static_cast<const Eigen::Matrix<PiecewiseFunction, 3, 3>&>(mat);
-    // Eigen::SparseMatrix<PiecewiseFunction> mpf2 = static_cast<const Eigen::SparseMatrix<PiecewiseFunction>&>(diag);  // won't compile. why? 
+EigenMatrixPF operator*(const EigenMatrixPF& mat, const DiagonalMatrixPF& diag) {
+    EigenMatrixPF result;
+
+    // Iterate over the rows and columns of the dense matrix
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            // Multiply each element of the dense matrix by the corresponding diagonal element
+            result(i, j) = mat(i, j) * diag.coeff(j, j);
+        }
+    }
+
+    return result;
 }
 
-// EigenMatrixPF operator*(const EigenMatrixPF& mat, const DiagonalMatrixPF& diag) {
-//     Eigen::Matrix<PiecewiseFunction, 3, 3> mpf1 = static_cast<const Eigen::Matrix<PiecewiseFunction, 3, 3>&>(mat);
-//     Eigen::SparseMatrix<PiecewiseFunction> mpf2 = static_cast<const Eigen::SparseMatrix<PiecewiseFunction>&>(diag);
-    
-//     return EigenMatrixPF(mpf1 * mpf2);
-// }
+EigenMatrixPF operator*(const DiagonalMatrixPF& diag, const EigenMatrixPF& mat) {
+    EigenMatrixPF result;
 
+    // Iterate over the rows and columns of the dense matrix
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            // Multiply each element of the dense matrix by the corresponding diagonal element
+            result(i, j) = diag.coeff(i, i) * mat(i, j);
+        }
+    }
 
-// EigenMatrixPF operator*(const EigenMatrixPF& mat, const DiagonalMatrixPF& diag) {
-//     EigenMatrixPF result;
-//     // for (int i = 0; i < 3; ++i) {
-//     //     for (int j = 0; j < 3; ++j) {
-//     //         result(i, j) = mat(i, j) * diag.coeff(j, j);  // multiply matrix element with corresponding diagonal element
-//     //     }
-//     // }
-//     return result;
-// }
+    return result;
+}
 
+EigenMatrixPF operator*(const Eigen::Matrix3d& mat, const DiagonalMatrixPF& diag) {
+    EigenMatrixPF result;
+
+    // Iterate over the diagonal elements of the diagonal matrix
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            // Multiply each column of the dense matrix by the corresponding diagonal element
+            result(i, j) = mat(i, j) * diag.coeff(j, j);
+        }
+    }
+
+    return result;
+}
+
+EigenMatrixPF operator*(const DiagonalMatrixPF& diag, const Eigen::Matrix3d& mat) {
+    EigenMatrixPF result;
+
+    // Iterate over the diagonal elements of the diagonal matrix
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            // Multiply each row of the dense matrix by the corresponding diagonal element
+            result(i, j) = diag.coeff(i, i) * mat(i, j);
+        }
+    }
+
+    return result;
+}
+
+EigenMatrixPF operator*(const EigenMatrixPF& pfMatrix, const Eigen::Matrix3d& doubleMatrix) {
+    EigenMatrixPF result;
+
+    // Perform matrix multiplication
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            result(i, j) = PiecewiseFunction(); // Initialize to zero function
+            for (int k = 0; k < 3; ++k) {
+                result(i, j) = result(i, j) + pfMatrix(i, k) * doubleMatrix(k, j);
+            }
+        }
+    }
+
+    return result;
+}
+
+EigenMatrixPF operator*(const Eigen::Matrix3d& doubleMatrix, const EigenMatrixPF& pfMatrix) {
+    EigenMatrixPF result;
+
+    // Perform matrix multiplication
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j) {
+            result(i, j) = PiecewiseFunction(); // Initialize to zero function
+            for (int k = 0; k < 3; ++k) {
+                result(i, j) = result(i, j) + doubleMatrix(i, k) * pfMatrix(k, j);
+            }
+        }
+    }
+
+    return result;
+}
 
 class MatrixPiecewiseFunction {
 public:
@@ -694,7 +855,7 @@ public:
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 for (int k = 0; k < 3; ++k) {
-                    result.m_matrix[i][j] = result.m_matrix[i][j] + c[i][k] * mpf.m_matrix[k][j];
+                    result.m_matrix[i][j] = result.m_matrix[i][j] + mpf.m_matrix[i][k] * c[k][j];
                 }
             }
         }
